@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UMCP Porto — Clinic Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0f0;color:#404040;}
+.page{max-width:1140px;margin:0 auto;padding:20px;}
+.top-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #e0e0e0;background:#fff;padding:16px 20px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07);}
+.clinic-name{font-size:11px;color:#999;margin-bottom:3px;}
+.month-nav{display:flex;align-items:center;gap:10px;margin-top:4px;}
+.month-nav h2{font-size:17px;font-weight:500;min-width:150px;text-align:center;}
+.month-nav button{padding:4px 12px;font-size:13px;border:1px solid #d0d0d0;border-radius:7px;cursor:pointer;background:#f5f5f5;}
+.month-nav button:hover{background:#e8e8e8;}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;}
+.tabs{display:flex;gap:6px;margin-bottom:14px;}
+.tab{padding:6px 16px;font-size:13px;border:1px solid #d0d0d0;border-radius:8px;cursor:pointer;color:#888;background:#fff;}
+.tab.active{background:#006B68;color:#fff;border-color:#006B68;}
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.mcard{background:#fff;border-radius:8px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.mcard .lbl{font-size:10px;color:#999;margin-bottom:3px;}
+.mcard .val{font-size:21px;font-weight:500;}
+.mcard .sub{font-size:10px;color:#999;margin-top:2px;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#666;}
+.legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.alert-box{padding:7px 12px;border-radius:7px;font-size:12px;margin-bottom:8px;}
+.alert-yellow{background:#FFF2CC;color:#7a5c00;border:1px solid #e6c800;}
+.alert-blue{background:#EEF5FB;color:#0C447C;border:1px solid #2E75B6;}
+.alert-red{background:#FCEAEA;color:#8a0000;border:1px solid #f09595;}
+.cal-wrap{border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;background:#fff;}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);background:#f7f7f7;border-bottom:1px solid #e0e0e0;}
+.cal-dow div{padding:7px;text-align:center;font-size:12px;font-weight:500;color:#777;}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid #e0e0e0;}
+.cal-week:last-child{border-bottom:none;}
+.cal-day{padding:5px 5px;min-height:95px;border-right:1px solid #e0e0e0;background:#fff;cursor:pointer;}
+.cal-day:last-child{border-right:none;}
+.cal-day:hover{background:#fafafa;}
+.cal-day.empty{background:#fafafa;opacity:0.4;cursor:default;}
+.cal-day.no-gp{background:#fffbee;}
+.day-num{font-size:12px;font-weight:500;color:#999;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;}
+.no-gp-badge{font-size:9px;color:#C55A11;}
+.day-bars{margin-bottom:3px;display:flex;flex-direction:column;gap:2px;}
+.day-bar-row{display:flex;align-items:center;gap:3px;}
+.day-bar-lbl{font-size:9px;color:#aaa;width:26px;flex-shrink:0;}
+.day-bar-bg{flex:1;height:4px;background:#ebebeb;border-radius:2px;overflow:hidden;}
+.day-bar-fill{height:100%;border-radius:2px;}
+.day-bar-pct{font-size:9px;font-weight:500;min-width:24px;text-align:right;}
+.shift{padding:2px 4px;border-radius:3px;margin-bottom:2px;border-left:2px solid transparent;cursor:pointer;transition:opacity 0.15s;}
+.shift:hover{opacity:0.8;}
+.shift-name{font-size:10px;font-weight:500;line-height:1.3;}
+.shift-time{font-size:9px;line-height:1.2;}
+.spec-badge{display:inline-block;font-size:8px;padding:0 3px;border-radius:2px;margin-left:2px;vertical-align:middle;}
+.add-shift-btn{display:block;width:100%;text-align:center;font-size:10px;color:#aaa;padding:2px 0;border:1px dashed #ddd;border-radius:3px;cursor:pointer;margin-top:2px;}
+.add-shift-btn:hover{color:#006B68;border-color:#006B68;}
+/* Staff & Rooms */
+.stbl{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+.stbl th{background:#f7f7f7;padding:8px 10px;text-align:left;color:#999;font-weight:500;border-bottom:1px solid #e0e0e0;}
+.stbl td{padding:7px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle;}
+.stbl tr:hover td{background:#fafafa;}
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:2px 8px;border-radius:10px;}
+.b-gp{background:#E1F5EE;color:#085041;}
+.b-spec{background:#E6F1FB;color:#0C447C;}
+.b-peds{background:#FAEEDA;color:#633806;}
+.b-gyn{background:#FBEAF0;color:#4B1528;}
+.b-red{background:#FCEAEA;color:#501313;}
+.b-org{background:#FFF2CC;color:#633806;}
+.bar-bg{flex:1;height:8px;background:#ebebeb;border-radius:4px;overflow:hidden;min-width:60px;}
+.bar-fg{height:100%;border-radius:4px;}
+.room-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.room-card{border:1px solid #e0e0e0;border-radius:10px;padding:12px 16px;background:#fff;}
+.chip{font-size:11px;padding:2px 9px;border-radius:10px;background:#f0f0f0;color:#666;border:1px solid #e0e0e0;display:inline-block;margin:2px 2px 2px 0;}
+.chip.gp{background:#E1F5EE;color:#085041;border-color:#5DCAA5;}
+.view{display:none;}
+.view.active{display:block;}
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:12px;padding:24px;width:420px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.18);}
+.modal h3{font-size:15px;font-weight:500;margin-bottom:16px;color:#404040;}
+.modal label{display:block;font-size:12px;color:#666;margin-bottom:4px;margin-top:12px;}
+.modal select,.modal input{width:100%;padding:7px 10px;border:1px solid #d0d0d0;border-radius:7px;font-size:13px;color:#404040;}
+.modal select:focus,.modal input:focus{outline:none;border-color:#006B68;}
+.modal-btns{display:flex;gap:8px;margin-top:20px;}
+.btn{padding:7px 16px;border-radius:7px;font-size:13px;cursor:pointer;border:none;}
+.btn-primary{background:#006B68;color:#fff;}
+.btn-primary:hover{background:#005a58;}
+.btn-danger{background:#FCEAEA;color:#8a0000;border:1px solid #f09595;}
+.btn-danger:hover{background:#f8d7d7;}
+.btn-cancel{background:#f0f0f0;color:#666;}
+.btn-cancel:hover{background:#e8e8e8;}
+.saving-indicator{font-size:11px;color:#006B68;margin-left:8px;}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="top-header">
+  <div>
+    <div class="clinic-name">United Medical Clinic Porto · UMCP, LDA · NIPC 519073800 · ERS E181989</div>
+    <div class="month-nav">
+      <button onclick="cm(-1)">← prev</button>
+      <h2 id="ml">Loading...</h2>
+      <button onclick="cm(1)">next →</button>
+    </div>
+  </div>
+  <div style="text-align:right;font-size:11px;color:#bbb;padding-top:4px;">
+    <span class="status-dot" id="sync-dot" style="background:#ccc;"></span><span id="sync-status">Loading...</span><br>
+    <span id="gendate"></span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="st('cal',this)">📅 Calendar</div>
+  <div class="tab" onclick="st('staff',this)">👥 Staff</div>
+  <div class="tab" onclick="st('rooms',this)">🚪 Rooms</div>
+</div>
+
+<div class="metrics" id="mrow"></div>
+
+<div id="v-cal" class="view active">
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:#1B4F8A;"></span>Room 1 · Pediatrics/GP</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#2E75B6;"></span>Room 2 · Medicina Geral</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#C55A11;"></span>Room 3 · Ginecologia/ECO</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#E1F5EE;border:1.5px solid #5DCAA5;"></span>GP/Family medicine</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#fffbee;border:1.5px solid #e6c800;"></span>No GP coverage</span>
+    <span class="legend-item" style="color:#006B68;cursor:pointer;" onclick="openAdd(null)">＋ Add shift</span>
+  </div>
+  <div id="cal-alerts"></div>
+  <div class="cal-wrap">
+    <div class="cal-dow"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div>
+    <div id="cal-body"></div>
+  </div>
+</div>
+<div id="v-staff" class="view"></div>
+<div id="v-rooms" class="view"></div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Add shift</h3>
+    <label>Doctor</label>
+    <select id="m-doctor"></select>
+    <label>Date</label>
+    <input type="date" id="m-date" min="2026-01-01" max="2027-12-31">
+    <label>Room</label>
+    <select id="m-room">
+      <option value="1">Room 1 · Pediatrics/GP</option>
+      <option value="2">Room 2 · Medicina Geral</option>
+      <option value="3">Room 3 · Ginecologia/ECO</option>
+    </select>
+    <label>Start time</label>
+    <input type="time" id="m-start" value="09:00">
+    <label>End time</label>
+    <input type="time" id="m-end" value="14:00">
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="saveShift()">Save</button>
+      <button class="btn btn-danger" id="btn-delete" onclick="deleteShift()" style="display:none;">Delete</button>
+      <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+      <span class="saving-indicator" id="saving-msg"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const BIN_ID='6a2d3fc7da38895dfeb9cdcb';
+const API_KEY='$2a$10$vp.Th52YcMrtTYnAmx9uzey8ZjVYmEOs.QHuuPfiBHs9Lc1HoX1AK';
+const API_BASE=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+const CLINIC_ROOMS=[1,2,3];
+const ROOMS=[
+  {id:1,name:'Room 1 · Pediatrics/GP',color:'#1B4F8A',bg:'#EEF3FA'},
+  {id:2,name:'Room 2 · Medicina Geral',color:'#2E75B6',bg:'#EEF5FB'},
+  {id:3,name:'Room 3 · Ginecologia/ECO',color:'#C55A11',bg:'#FDF0E8'},
+];
+const DOCTORS=[
+  {name:'Joana M.',type:'GP'},
+  {name:'Rachel L.',type:'GP'},
+  {name:'Kostyantyn A.',type:'GP'},
+  {name:'Alyona K.',type:'GP'},
+  {name:'Jose C.',type:'GP'},
+  {name:'Tiago Veloso',type:'GP'},
+  {name:'Yuriy M.',type:'GP'},
+  {name:'Nataliia L.',type:'GP'},
+  {name:'Iryna M.',type:'GP'},
+  {name:'Joao Maia',type:'GP'},
+  {name:'Miguel Paiva',type:'GP'},
+  {name:'Tiago C.',type:'Spec'},
+  {name:'Berta R.',type:'Spec'},
+  {name:'Carolina V.E.',type:'Gyn'},
+  {name:'Ana Cunha',type:'Gyn'},
+  {name:'Maria Ines S.',type:'Gyn'},
+  {name:'Catarina B.',type:'Peds'},
+  {name:'Sofia V.',type:'Peds'},
+  {name:'Manuel Godinho',type:'Ortho'},
+  {name:'Estela D.V.',type:'Spec'},
+];
+const SPEC_BADGE={
+  GP:{text:'GP',bg:'rgba(15,123,74,0.15)',color:'#085041'},
+  Gyn:{text:'Gyn',bg:'rgba(75,21,40,0.12)',color:'#4B1528'},
+  Peds:{text:'Peds',bg:'rgba(99,56,6,0.12)',color:'#633806'},
+  Spec:{text:'Spec',bg:'rgba(12,68,124,0.12)',color:'#0C447C'},
+  Ortho:{text:'Ortho',bg:'rgba(12,68,124,0.12)',color:'#0C447C'},
+};
+function isGP(name){const d=DOCTORS.find(x=>x.name===name);return d&&d.type==='GP';}
+function docType(name){const d=DOCTORS.find(x=>x.name===name);return d?d.type:'';}
+
+const DAY_START=9*60,DAY_END=20*60,DAY_MINS=660;
+function toMin(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+function shHrs(s){return(toMin(s.end)-toMin(s.start))/60;}
+function fd(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function unionMins(arr){
+  const iv=arr.map(s=>[Math.max(DAY_START,toMin(s.start)),Math.min(DAY_END,toMin(s.end))]).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+  let cov=0,cur=null;
+  iv.forEach(([a,b])=>{if(!cur){cur=[a,b];}else if(a<=cur[1]){cur[1]=Math.max(cur[1],b);}else{cov+=cur[1]-cur[0];cur=[a,b];}});
+  if(cur)cov+=cur[1]-cur[0];return cov;
+}
+function clinicOccDay(ds){
+  let t=0;CLINIC_ROOMS.forEach(rid=>{t+=unionMins(ds.filter(s=>s.room===rid));});
+  return t/(CLINIC_ROOMS.length*DAY_MINS);
+}
+function gpUnion(ds){return unionMins(ds.filter(s=>isGP(s.doctor)));}
+function getWorkDays(y,m){const d=[];const dt=new Date(y,m,1);while(dt.getMonth()===m){if(dt.getDay()!==0)d.push(new Date(dt));dt.setDate(dt.getDate()+1);}return d;}
+
+let allShifts=[];
+let CY=2026,CM=5;
+const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// JSONbin API
+async function loadShifts(){
+  setSyncStatus('loading');
+  try{
+    const r=await fetch(`${API_BASE}/latest`,{
+      method:'GET',
+      headers:{
+        'X-Master-Key':API_KEY,
+        'X-Bin-Meta':'false'
+      }
+    });
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const data=await r.json();
+    allShifts=(data.shifts||[]).map((s,i)=>({...s,room:parseInt(s.room),_id:i}));
+    setSyncStatus('ok');
+    render();
+  }catch(e){setSyncStatus('error');console.error('Load error:',e);}
+}
+async function saveAllShifts(){
+  setSyncStatus('saving');
+  try{
+    const payload={shifts:allShifts.map(({_id,...s})=>s)};
+    const r=await fetch(API_BASE,{
+      method:'PUT',
+      headers:{
+        'Content-Type':'application/json',
+        'X-Master-Key':API_KEY
+      },
+      body:JSON.stringify(payload)
+    });
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    allShifts=allShifts.map((s,i)=>({...s,_id:i}));
+    setSyncStatus('ok');
+  }catch(e){setSyncStatus('error');console.error('Save error:',e);}
+}
+function setSyncStatus(s){
+  const dot=document.getElementById('sync-dot');
+  const txt=document.getElementById('sync-status');
+  if(s==='ok'){dot.style.background='#0F7B4A';txt.textContent='Synced';}
+  else if(s==='saving'){dot.style.background='#C55A11';txt.textContent='Saving...';}
+  else if(s==='loading'){dot.style.background='#aaa';txt.textContent='Loading...';}
+  else{dot.style.background='#C00000';txt.textContent='Sync error';}
+}
+
+function cm(d){CM+=d;if(CM<0){CM=11;CY--;}if(CM>11){CM=0;CY++;}render();}
+function st(tab,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');['cal','staff','rooms'].forEach(v=>{document.getElementById('v-'+v).classList.toggle('active',v===tab);});}
+
+function getMonthShifts(){
+  const key=`${CY}-${String(CM+1).padStart(2,'0')}`;
+  return allShifts.filter(s=>s.date&&s.date.startsWith(key));
+}
+
+function render(){
+  document.getElementById('ml').textContent=`${MN[CM]} ${CY}`;
+  document.getElementById('gendate').textContent=new Date().toLocaleDateString('en-GB');
+  const shifts=getMonthShifts();
+  const wdays=getWorkDays(CY,CM);
+  renderMetrics(shifts,wdays);
+  renderCal(shifts,wdays);
+  renderStaff(shifts,wdays);
+  renderRooms(shifts,wdays);
+  populateDoctorSelect();
+}
+
+function renderMetrics(shifts,wdays){
+  const bd={};shifts.forEach(s=>{if(!bd[s.date])bd[s.date]=[];bd[s.date].push(s);});
+  let totalOcc=0;wdays.forEach(d=>{totalOcc+=clinicOccDay(bd[fd(d)]||[]);});
+  const clinicPct=wdays.length>0?Math.round(totalOcc/wdays.length*100):0;
+  const noGP=wdays.filter(d=>gpUnion(bd[fd(d)]||[])===0).length;
+  let tgp=0;wdays.forEach(d=>{tgp+=gpUnion(bd[fd(d)]||[]);});
+  const gpPct=wdays.length>0?Math.round(tgp/(wdays.length*DAY_MINS)*100):0;
+  const docs=new Set(shifts.map(s=>s.doctor)).size;
+  const hrs=Math.round(shifts.reduce((a,s)=>a+shHrs(s),0));
+  const roomPcts=CLINIC_ROOMS.map(rid=>{let t=0;wdays.forEach(d=>{t+=unionMins((bd[fd(d)]||[]).filter(s=>s.room===rid));});return wdays.length>0?Math.round(t/(wdays.length*DAY_MINS)*100):0;});
+  document.getElementById('mrow').innerHTML=`
+    <div class="mcard">
+      <div class="lbl">Clinic occupancy</div>
+      <div class="val" style="color:${clinicPct>=50?'#0F7B4A':clinicPct>=25?'#C55A11':'#C00000'}">${clinicPct}%</div>
+      <div class="sub">avg · 3 rooms</div>
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;">
+        ${CLINIC_ROOMS.map((rid,i)=>{const rc=ROOMS.find(r=>r.id===rid);return`<div style="display:flex;align-items:center;gap:4px;font-size:10px;"><span style="width:6px;height:6px;border-radius:1px;background:${rc.color};flex-shrink:0;display:inline-block;"></span><span style="color:#888;width:30px;">Rm${rid}</span><div style="flex:1;height:4px;background:#e0e0e0;border-radius:2px;overflow:hidden;"><div style="height:100%;width:${roomPcts[i]}%;background:${rc.color};"></div></div><span style="color:#666;min-width:24px;text-align:right;">${roomPcts[i]}%</span></div>`;}).join('')}
+      </div>
+    </div>
+    <div class="mcard"><div class="lbl">GP time coverage</div><div class="val" style="color:${gpPct>=60?'#0F7B4A':gpPct>=30?'#C55A11':'#C00000'}">${gpPct}%</div><div class="sub">union GP hrs / clinic hrs</div></div>
+    <div class="mcard"><div class="lbl">Days without GP</div><div class="val" style="color:${noGP===0?'#0F7B4A':'#C00000'}">${noGP}</div><div class="sub">of ${wdays.length} working days</div></div>
+    <div class="mcard"><div class="lbl">Active doctors</div><div class="val">${docs}</div><div class="sub">of ${DOCTORS.length} on staff</div></div>
+    <div class="mcard"><div class="lbl">Total hours</div><div class="val">${hrs}h</div><div class="sub">scheduled</div></div>`;
+}
+
+function renderCal(shifts,wdays){
+  const bd={};shifts.forEach(s=>{if(!bd[s.date])bd[s.date]=[];bd[s.date].push(s);});
+  const dim=new Date(CY,CM+1,0).getDate();
+  const off=(new Date(CY,CM,1).getDay()+6)%7;
+  const weeks=[];let week=[];
+  for(let i=0;i<off;i++)week.push(null);
+  for(let d=1;d<=dim;d++){week.push(d);if(week.length===7){weeks.push(week);week=[];}}
+  if(week.length){while(week.length<7)week.push(null);weeks.push(week);}
+  const noGPdays=wdays.filter(d=>gpUnion(bd[fd(d)]||[])===0);
+  let ah='';
+  if(noGPdays.length)ah+=`<div class="alert-box alert-yellow"><strong>${noGPdays.length} day${noGPdays.length>1?'s':''} without GP:</strong> ${noGPdays.map(d=>d.getDate()+' '+MN[d.getMonth()].slice(0,3)).join(', ')}</div>`;
+  document.getElementById('cal-alerts').innerHTML=ah;
+  let html='';
+  weeks.forEach(wk=>{
+    html+=`<div class="cal-week">`;
+    wk.forEach(d=>{
+      if(!d){html+=`<div class="cal-day empty"></div>`;return;}
+      const dt=new Date(CY,CM,d),isSun=dt.getDay()===0,ds=fd(dt),dayS=bd[ds]||[];
+      const gpM=gpUnion(dayS),noGP=!isSun&&gpM===0;
+      const occPct=isSun?0:Math.round(clinicOccDay(dayS)*100);
+      const gpPct=isSun?0:Math.round(gpM/DAY_MINS*100);
+      const occColor=occPct>=50?'#0F7B4A':occPct>=25?'#C55A11':'#C00000';
+      const gpColor=gpPct>=60?'#0F7B4A':gpPct>=30?'#C55A11':'#C00000';
+      html+=`<div class="cal-day${noGP?' no-gp':''}${isSun?' empty':''}" onclick="openAdd('${ds}')">`;
+      html+=`<div class="day-num"><span>${d}</span>${noGP&&!isSun?`<span class="no-gp-badge">no GP</span>`:''}</div>`;
+      if(!isSun&&dayS.length>0){
+        html+=`<div class="day-bars">
+          <div class="day-bar-row"><span class="day-bar-lbl">clinic</span><div class="day-bar-bg"><div class="day-bar-fill" style="width:${occPct}%;background:${occColor};"></div></div><span class="day-bar-pct" style="color:${occColor};">${occPct}%</span></div>
+          <div class="day-bar-row"><span class="day-bar-lbl">GP</span><div class="day-bar-bg"><div class="day-bar-fill" style="width:${gpPct}%;background:${gpColor};"></div></div><span class="day-bar-pct" style="color:${gpColor};">${gpPct}%</span></div>
+        </div>`;
+      }
+      dayS.forEach(s=>{
+        const rc=ROOMS.find(r=>r.id===s.room)||{color:'#888',bg:'#f5f5f5'};
+        const tp=docType(s.doctor);const sb=SPEC_BADGE[tp]||{};
+        const badge=sb.text?`<span class="spec-badge" style="background:${sb.bg};color:${sb.color};">${sb.text}</span>`:'';
+        html+=`<div class="shift" style="background:${rc.bg};border-left-color:${rc.color};" onclick="event.stopPropagation();openEdit(${s._id})">
+          <div class="shift-name" style="color:${rc.color};">${s.doctor}${badge}</div>
+          <div class="shift-time" style="color:${rc.color};">${s.start}–${s.end}</div>
+        </div>`;
+      });
+      if(!isSun)html+=`<div class="add-shift-btn" onclick="event.stopPropagation();openAdd('${ds}')">＋</div>`;
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+  });
+  document.getElementById('cal-body').innerHTML=html;
+}
+
+function renderStaff(shifts,wdays){
+  const dh={},ds={},dr={};
+  shifts.forEach(s=>{dh[s.doctor]=(dh[s.doctor]||0)+shHrs(s);ds[s.doctor]=(ds[s.doctor]||0)+1;if(!dr[s.doctor])dr[s.doctor]=new Set();dr[s.doctor].add(s.room);});
+  const maxH=wdays.length*11;
+  const noShift=DOCTORS.filter(d=>!ds[d.name]);
+  const one=DOCTORS.filter(d=>ds[d.name]===1);
+  let html='';
+  if(noShift.length)html+=`<div class="alert-box alert-red" style="margin-bottom:8px;"><strong>Not scheduled:</strong> ${noShift.map(d=>d.name+(d.type==='GP'?' ★GP':'')).join(', ')}</div>`;
+  if(one.length)html+=`<div class="alert-box alert-yellow" style="margin-bottom:10px;"><strong>Only 1 shift:</strong> ${one.map(d=>d.name).join(', ')}</div>`;
+  html+=`<table class="stbl"><thead><tr><th>Doctor</th><th>Type</th><th>Shifts</th><th>Hours</th><th>Rooms</th><th style="min-width:120px;">Coverage</th></tr></thead><tbody>`;
+  [...DOCTORS].sort((a,b)=>(dh[b.name]||0)-(dh[a.name]||0)).forEach(d=>{
+    const h=Math.round(dh[d.name]||0),s=ds[d.name]||0,p=maxH>0?Math.min(100,Math.round(h/maxH*100)):0;
+    const rooms=dr[d.name]?[...dr[d.name]].map(r=>'Rm'+r).join(', '):'–';
+    const tb=d.type==='GP'?`<span class="badge b-gp">GP</span>`:d.type==='Gyn'?`<span class="badge b-gyn">Gyn</span>`:d.type==='Peds'?`<span class="badge b-peds">Peds</span>`:`<span class="badge b-spec">${d.type}</span>`;
+    const sb=s===0?`<span class="badge b-red">0</span>`:s<=2?`<span class="badge b-org">${s}</span>`:`<strong>${s}</strong>`;
+    html+=`<tr><td style="font-weight:500;">${d.name}</td><td>${tb}</td><td>${sb}</td><td>${h>0?h+'h':'–'}</td><td style="font-size:11px;color:#888;">${rooms}</td>
+    <td><div style="display:flex;align-items:center;gap:6px;"><div class="bar-bg"><div class="bar-fg" style="width:${p}%;background:${p>0?'#006B68':'#ccc'};"></div></div><span style="font-size:11px;color:#888;min-width:28px;">${p>0?p+'%':'–'}</span></div></td></tr>`;
+  });
+  html+=`</tbody></table>`;
+  document.getElementById('v-staff').innerHTML=html;
+}
+
+function renderRooms(shifts,wdays){
+  const rh={},rd={},rdays={};
+  ROOMS.forEach(r=>{rh[r.id]=0;rd[r.id]=[];rdays[r.id]=new Set();});
+  shifts.forEach(s=>{if(rh[s.room]!==undefined){rh[s.room]+=shHrs(s);if(!rd[s.room].includes(s.doctor))rd[s.room].push(s.doctor);rdays[s.room].add(s.date);}});
+  const bd={};shifts.forEach(s=>{if(!bd[s.date])bd[s.date]=[];bd[s.date].push(s);});
+  const roomOccPct={};
+  ROOMS.forEach(r=>{let t=0;wdays.forEach(d=>{t+=unionMins((bd[fd(d)]||[]).filter(s=>s.room===r.id));});roomOccPct[r.id]=wdays.length>0?Math.round(t/(wdays.length*DAY_MINS)*100):0;});
+  let html=`<div class="room-grid">`;
+  ROOMS.forEach(r=>{
+    const h=Math.round(rh[r.id]),op=roomOccPct[r.id],dp=wdays.length>0?Math.round(rdays[r.id].size/wdays.length*100):0;
+    html+=`<div class="room-card">
+      <h3 style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;margin-bottom:8px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${r.color};"></span>${r.name}</h3>
+      <div style="font-size:12px;color:#888;margin-bottom:6px;">Hours: <strong style="color:#404040;">${h}h</strong> · Time occ: <strong style="color:${op>=50?'#0F7B4A':'#C55A11'}">${op}%</strong> · Days: <strong>${rdays[r.id].size}/${wdays.length}</strong></div>
+      <div style="height:10px;background:#ebebeb;border-radius:5px;overflow:hidden;margin-bottom:8px;"><div style="height:100%;width:${op}%;background:${r.color};border-radius:5px;"></div></div>
+      <div>${rd[r.id].length?rd[r.id].map(nm=>{const doc=DOCTORS.find(x=>x.name===nm)||{};return`<span class="chip ${doc.type==='GP'?'gp':''}">${nm}</span>`;}).join(''):'<span style="font-size:11px;color:#888;">No doctors</span>'}</div>
+    </div>`;
+  });
+  html+=`</div>`;
+  let totalOcc=0;wdays.forEach(d=>{totalOcc+=clinicOccDay(bd[fd(d)]||[]);});
+  const clinicPct=wdays.length>0?Math.round(totalOcc/wdays.length*100):0;
+  html+=`<div style="margin-top:16px;border:1px solid #e0e0e0;border-radius:10px;padding:14px 16px;background:#fff;">
+    <div style="font-size:13px;font-weight:500;margin-bottom:10px;">Clinic occupancy — Rooms 1–3</div>
+    ${CLINIC_ROOMS.map(rid=>{const rc=ROOMS.find(r=>r.id===rid);return`<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${rc.color};flex-shrink:0;"></span><span style="font-size:12px;color:#666;min-width:180px;">${rc.name}</span><div style="flex:1;height:10px;background:#ebebeb;border-radius:5px;overflow:hidden;"><div style="height:100%;width:${roomOccPct[rid]}%;background:${rc.color};border-radius:5px;"></div></div><span style="font-size:12px;font-weight:500;color:#404040;min-width:36px;text-align:right;">${roomOccPct[rid]}%</span></div>`;}).join('')}
+    <div style="border-top:1px solid #e0e0e0;margin-top:10px;padding-top:10px;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:12px;font-weight:500;min-width:188px;">Overall clinic occupancy</span>
+      <div style="flex:1;height:10px;background:#ebebeb;border-radius:5px;overflow:hidden;"><div style="height:100%;width:${clinicPct}%;background:${clinicPct>=50?'#0F7B4A':clinicPct>=25?'#C55A11':'#C00000'};border-radius:5px;"></div></div>
+      <span style="font-size:14px;font-weight:600;color:${clinicPct>=50?'#0F7B4A':clinicPct>=25?'#C55A11':'#C00000'};min-width:36px;text-align:right;">${clinicPct}%</span>
+    </div>
+  </div>`;
+  document.getElementById('v-rooms').innerHTML=html;
+}
+
+// Doctor select
+function populateDoctorSelect(){
+  const sel=document.getElementById('m-doctor');
+  if(sel.options.length>0)return;
+  DOCTORS.forEach(d=>{const o=document.createElement('option');o.value=d.name;o.textContent=`${d.name} (${d.type})`;sel.appendChild(o);});
+}
+
+// Modal logic
+let editingId=null;
+function openAdd(dateStr){
+  editingId=null;
+  document.getElementById('modal-title').textContent='Add shift';
+  document.getElementById('btn-delete').style.display='none';
+  document.getElementById('m-date').value=dateStr||fd(new Date());
+  document.getElementById('m-start').value='09:00';
+  document.getElementById('m-end').value='14:00';
+  document.getElementById('m-room').value='2';
+  document.getElementById('saving-msg').textContent='';
+  document.getElementById('modal').classList.add('open');
+}
+function openEdit(id){
+  const s=allShifts.find(x=>x._id===id);
+  if(!s)return;
+  editingId=id;
+  document.getElementById('modal-title').textContent='Edit shift';
+  document.getElementById('btn-delete').style.display='inline-block';
+  document.getElementById('m-doctor').value=s.doctor;
+  document.getElementById('m-date').value=s.date;
+  document.getElementById('m-room').value=s.room;
+  document.getElementById('m-start').value=s.start;
+  document.getElementById('m-end').value=s.end;
+  document.getElementById('saving-msg').textContent='';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+async function saveShift(){
+  const doctor=document.getElementById('m-doctor').value;
+  const date=document.getElementById('m-date').value;
+  const room=parseInt(document.getElementById('m-room').value);
+  const start=document.getElementById('m-start').value;
+  const end=document.getElementById('m-end').value;
+  if(!doctor||!date||!start||!end){alert('Fill all fields');return;}
+  document.getElementById('saving-msg').textContent='Saving...';
+  if(editingId!==null){
+    const idx=allShifts.findIndex(x=>x._id===editingId);
+    if(idx>=0)allShifts[idx]={...allShifts[idx],doctor,date,room,start,end};
+  }else{
+    allShifts.push({doctor,date,room,start,end,_id:Date.now()});
+  }
+  await saveAllShifts();
+  closeModal();
+  render();
+}
+async function deleteShift(){
+  if(!confirm('Delete this shift?'))return;
+  allShifts=allShifts.filter(x=>x._id!==editingId);
+  await saveAllShifts();
+  closeModal();
+  render();
+}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+// Init
+loadShifts();
+</script>
+</body>
+</html>
