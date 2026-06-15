@@ -127,6 +127,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <span class="legend-item"><span class="legend-dot" style="background:#C55A11;"></span>Room 3 · Ginecologia/ECO</span>
     <span class="legend-item"><span class="legend-dot" style="background:#E1F5EE;border:1.5px solid #5DCAA5;"></span>GP/Family medicine</span>
     <span class="legend-item"><span class="legend-dot" style="background:#fffbee;border:1.5px solid #e6c800;"></span>No GP coverage</span>
+    <span class="legend-item"><span style="display:inline-flex;gap:2px;"><span style="width:6px;height:12px;border-radius:1px;background:#FCEAEA;display:inline-block;"></span><span style="width:6px;height:12px;border-radius:1px;background:#0F7B4A;display:inline-block;"></span><span style="width:6px;height:12px;border-radius:1px;background:#F4B942;display:inline-block;"></span></span> GP timeline: red=gap · green=1 GP · yellow=2+ GP</span>
     <span class="legend-item" style="color:#006B68;cursor:pointer;" onclick="openAdd(null)">＋ Add shift</span>
   </div>
   <div id="cal-alerts"></div>
@@ -343,8 +344,42 @@ function renderCal(shifts,wdays){
       const gpPct=isSun?0:Math.round(gpM/DAY_MINS*100);
       const occColor=occPct>=50?'#0F7B4A':occPct>=25?'#C55A11':'#C00000';
       const gpColor=gpPct>=60?'#0F7B4A':gpPct>=30?'#C55A11':'#C00000';
+
+      // Build GP timeline: green=covered by 1 GP, yellow=2+ GPs overlap, red=gap
+      function gpTimeline(dayShifts){
+        const gpIvs=dayShifts.filter(s=>isGP(s.doctor))
+          .map(s=>[Math.max(DAY_START,toMin(s.start)),Math.min(DAY_END,toMin(s.end))])
+          .filter(([a,b])=>b>a);
+        // Build minute-by-minute coverage count
+        const slots=new Array(DAY_MINS).fill(0);
+        gpIvs.forEach(([a,b])=>{for(let i=a-DAY_START;i<b-DAY_START&&i<DAY_MINS;i++)slots[i]++;});
+        // Compress into segments
+        const segments=[];let i=0;
+        while(i<DAY_MINS){
+          const v=slots[i];let j=i;
+          while(j<DAY_MINS&&slots[j]===v)j++;
+          segments.push({start:DAY_START+i,end:DAY_START+j,count:v});
+          i=j;
+        }
+        return segments.map(seg=>{
+          const w=Math.round((seg.end-seg.start)/DAY_MINS*100);
+          const color=seg.count===0?'#FCEAEA':seg.count===1?'#0F7B4A':'#C55A11';
+          // yellow for overlap: use orange-amber
+          const bg=seg.count===0?'#FCEAEA':seg.count===1?'#0F7B4A':'#F4B942';
+          const startH=Math.floor(seg.start/60),startM=seg.start%60;
+          const endH=Math.floor(seg.end/60),endM=seg.end%60;
+          const label=seg.count===0?'No GP':seg.count===1?'GP':'2+ GP';
+          return`<div style="width:${w}%;height:100%;background:${bg};display:inline-block;vertical-align:top;" title="${label} ${startH}:${String(startM).padStart(2,'0')}–${endH}:${String(endM).padStart(2,'0')}"></div>`;
+        }).join('');
+      }
+
       html+=`<div class="cal-day${noGP?' no-gp':''}${isSun?' empty':''}" onclick="openAdd('${ds}')">`;
       html+=`<div class="day-num"><span>${d}</span>${noGP&&!isSun?`<span class="no-gp-badge">no GP</span>`:''}</div>`;
+      if(!isSun){
+        // GP timeline bar
+        const tlHtml=gpTimeline(dayS);
+        html+=`<div style="height:6px;width:100%;border-radius:2px;overflow:hidden;margin-bottom:3px;background:#FCEAEA;display:flex;" title="GP coverage 9:00–20:00">${tlHtml}</div>`;
+      }
       if(!isSun&&dayS.length>0){
         html+=`<div class="day-bars">
           <div class="day-bar-row"><span class="day-bar-lbl">clinic</span><div class="day-bar-bg"><div class="day-bar-fill" style="width:${occPct}%;background:${occColor};"></div></div><span class="day-bar-pct" style="color:${occColor};">${occPct}%</span></div>
