@@ -92,6 +92,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-cancel{background:#f0f0f0;color:#666;}
 .btn-cancel:hover{background:#e8e8e8;}
 .saving-indicator{font-size:11px;color:#006B68;margin-left:8px;}
+/* Bulk modal */
+.bulk-modal{width:620px;max-width:98vw;}
+.bmini-cal{border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;background:#fff;user-select:none;}
+.bmini-hdr{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#f7f7f7;border-bottom:1px solid #e0e0e0;}
+.bmini-hdr span{font-size:13px;font-weight:500;}
+.bmini-hdr button{border:none;background:none;cursor:pointer;font-size:14px;color:#006B68;padding:2px 6px;border-radius:4px;}
+.bmini-hdr button:hover{background:#e8e8e8;}
+.bmini-dow{display:grid;grid-template-columns:repeat(7,1fr);background:#fafafa;border-bottom:1px solid #f0f0f0;}
+.bmini-dow div{text-align:center;font-size:10px;color:#aaa;padding:4px 0;font-weight:500;}
+.bmini-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.bmini-cell{text-align:center;padding:5px 2px;font-size:12px;cursor:pointer;border-radius:4px;color:#404040;transition:background 0.1s;}
+.bmini-cell:hover:not(.bmini-empty):not(.bmini-sun){background:#e8f5f0;}
+.bmini-cell.bmini-empty{color:#ddd;cursor:default;}
+.bmini-cell.bmini-sun{color:#ccc;cursor:default;}
+.bmini-cell.bmini-sel{background:#006B68!important;color:#fff!important;border-radius:4px;}
+.bmini-cell.bmini-today{font-weight:700;color:#006B68;}
+.bmini-cell.bmini-sel.bmini-today{color:#fff;}
+.bulk-time-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+.bulk-time-row label{font-size:12px;color:#666;min-width:40px;}
+.bulk-time-input{padding:6px 10px;border:1px solid #d0d0d0;border-radius:7px;font-size:13px;color:#404040;width:100px;}
+.bulk-time-input:focus{outline:none;border-color:#006B68;}
+.bulk-sel-count{font-size:11px;color:#006B68;font-weight:500;}
+.bulk-preview{margin-top:10px;max-height:120px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:7px;background:#fafafa;}
+.bulk-preview-row{display:flex;align-items:center;gap:6px;padding:3px 8px;border-bottom:1px solid #f0f0f0;font-size:11px;color:#0F7B4A;}
+.bulk-preview-row:last-child{border-bottom:none;}
+/* Conflict alert */
+.conflict-box{background:#FFF2CC;border:1px solid #e6c800;border-radius:7px;padding:8px 12px;font-size:12px;color:#7a5c00;margin-bottom:10px;}
+.conflict-box strong{color:#5c4400;}
+.conflict-item{margin-top:3px;padding-left:8px;}
+
 </style>
 </head>
 <body>
@@ -129,6 +159,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <span class="legend-item"><span class="legend-dot" style="background:#fffbee;border:1.5px solid #e6c800;"></span>No GP coverage</span>
     <span class="legend-item"><span style="display:inline-flex;gap:2px;"><span style="width:6px;height:12px;border-radius:1px;background:#FCEAEA;display:inline-block;"></span><span style="width:6px;height:12px;border-radius:1px;background:#0F7B4A;display:inline-block;"></span><span style="width:6px;height:12px;border-radius:1px;background:#F4B942;display:inline-block;"></span></span> GP timeline: red=gap · green=1 GP · yellow=2+ GP</span>
     <span class="legend-item" style="color:#006B68;cursor:pointer;" onclick="openAdd(null)">＋ Add shift</span>
+    <span class="legend-item" style="color:#2E75B6;cursor:pointer;font-weight:500;" onclick="openBulk()">⊞ Bulk add</span>
   </div>
   <div id="cal-alerts"></div>
   <div class="cal-wrap">
@@ -464,6 +495,47 @@ function populateDoctorSelect(){
   DOCTORS.forEach(d=>{const o=document.createElement('option');o.value=d.name;o.textContent=`${d.name} (${d.type})`;sel.appendChild(o);});
 }
 
+// Conflict detection
+function findConflicts(newShifts, excludeId=null){
+  // newShifts: array of {doctor, date, room, start, end}
+  const conflicts=[];
+  newShifts.forEach(ns=>{
+    const sA=toMin(ns.start), eA=toMin(ns.end);
+    const same=allShifts.filter(s=>
+      s.date===ns.date &&
+      s.room===ns.room &&
+      s._id!==excludeId &&
+      s.doctor!==ns.doctor
+    );
+    same.forEach(s=>{
+      const sB=toMin(s.start), eB=toMin(s.end);
+      if(sA<eB && eA>sB){
+        conflicts.push({
+          newDoctor: ns.doctor,
+          newDate: ns.date,
+          newStart: ns.start,
+          newEnd: ns.end,
+          existingDoctor: s.doctor,
+          existingStart: s.start,
+          existingEnd: s.end,
+          room: ns.room
+        });
+      }
+    });
+  });
+  return conflicts;
+}
+
+function conflictHTML(conflicts){
+  const roomName={1:'Room 1',2:'Room 2',3:'Room 3'};
+  let html=`<div class="conflict-box"><strong>⚠️ Room conflict${conflicts.length>1?'s':''} detected:</strong>`;
+  conflicts.forEach(c=>{
+    html+=`<div class="conflict-item">• ${c.newDate} ${roomName[c.room]}: <strong>${c.newDoctor}</strong> ${c.newStart}–${c.newEnd} overlaps with <strong>${c.existingDoctor}</strong> ${c.existingStart}–${c.existingEnd}</div>`;
+  });
+  html+=`</div>`;
+  return html;
+}
+
 // Modal logic
 let editingId=null;
 function openAdd(dateStr){
@@ -491,7 +563,15 @@ function openEdit(id){
   document.getElementById('saving-msg').textContent='';
   document.getElementById('modal').classList.add('open');
 }
-function closeModal(){document.getElementById('modal').classList.remove('open');}
+function closeModal(){
+  document.getElementById('modal').classList.remove('open');
+  const existing=document.getElementById('modal-conflict');
+  if(existing)existing.remove();
+  // Reset save button
+  const btn=document.querySelector('#modal .btn-primary');
+  btn.textContent='Save';
+  btn.onclick=saveShift;
+}
 async function saveShift(){
   const doctor=document.getElementById('m-doctor').value;
   const date=document.getElementById('m-date').value;
@@ -499,6 +579,26 @@ async function saveShift(){
   const start=document.getElementById('m-start').value;
   const end=document.getElementById('m-end').value;
   if(!doctor||!date||!start||!end){alert('Fill all fields');return;}
+
+  // Conflict check
+  const conflicts=findConflicts([{doctor,date,room,start,end}], editingId);
+  if(conflicts.length>0){
+    const existing=document.getElementById('modal-conflict');
+    if(existing)existing.remove();
+    const div=document.createElement('div');
+    div.id='modal-conflict';
+    div.innerHTML=conflictHTML(conflicts)+`<div style="font-size:11px;color:#7a5c00;margin-top:4px;">Save anyway?</div>`;
+    document.querySelector('#modal .modal-btns').before(div);
+    // Change save button to "Save anyway"
+    const btn=document.querySelector('#modal .btn-primary');
+    btn.textContent='Save anyway';
+    btn.onclick=()=>doSaveShift(doctor,date,room,start,end);
+    return;
+  }
+  await doSaveShift(doctor,date,room,start,end);
+}
+
+async function doSaveShift(doctor,date,room,start,end){
   document.getElementById('saving-msg').textContent='Saving...';
   if(editingId!==null){
     const idx=allShifts.findIndex(x=>x._id===editingId);
@@ -521,6 +621,177 @@ document.getElementById('modal').addEventListener('click',function(e){if(e.targe
 
 // Init
 loadShifts();
+</script>
+
+<!-- Bulk Add Modal -->
+<div class="modal-overlay" id="bulk-modal">
+  <div class="modal bulk-modal">
+    <h3>⊞ Bulk add shifts</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+      <div>
+        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">Doctor</label>
+        <select id="b-doctor" style="width:100%;padding:7px 10px;border:1px solid #d0d0d0;border-radius:7px;font-size:13px;"></select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">Room</label>
+        <select id="b-room" style="width:100%;padding:7px 10px;border:1px solid #d0d0d0;border-radius:7px;font-size:13px;">
+          <option value="1">Room 1 · Pediatrics/GP</option>
+          <option value="2">Room 2 · Medicina Geral</option>
+          <option value="3">Room 3 · Ginecologia/ECO</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;align-items:start;">
+      <!-- Mini calendar -->
+      <div>
+        <div style="font-size:12px;color:#666;margin-bottom:6px;">Select dates <span class="bulk-sel-count" id="b-sel-count"></span></div>
+        <div class="bmini-cal">
+          <div class="bmini-hdr">
+            <button onclick="bCalNav(-1)">‹</button>
+            <span id="b-cal-title"></span>
+            <button onclick="bCalNav(1)">›</button>
+          </div>
+          <div class="bmini-dow"><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div><div>Su</div></div>
+          <div class="bmini-grid" id="b-cal-grid"></div>
+        </div>
+        <div style="font-size:10px;color:#aaa;margin-top:4px;">Click to select · click again to deselect</div>
+      </div>
+      <!-- Time + preview -->
+      <div>
+        <div style="font-size:12px;color:#666;margin-bottom:6px;">Time for all selected dates</div>
+        <div class="bulk-time-row">
+          <label>Start</label>
+          <input type="time" class="bulk-time-input" id="b-start" value="09:00" oninput="updateBulkPreview()">
+        </div>
+        <div class="bulk-time-row" style="margin-top:8px;">
+          <label>End</label>
+          <input type="time" class="bulk-time-input" id="b-end" value="14:00" oninput="updateBulkPreview()">
+        </div>
+        <div style="font-size:12px;color:#666;margin-top:14px;margin-bottom:6px;">Preview</div>
+        <div class="bulk-preview" id="b-preview"><div style="padding:10px 8px;font-size:11px;color:#bbb;">No dates selected</div></div>
+      </div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="saveBulk()" id="b-save-btn" disabled>Save</button>
+      <button class="btn btn-cancel" onclick="closeBulk()">Cancel</button>
+      <span class="saving-indicator" id="b-saving-msg"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+function openBulk(){
+  const sel=document.getElementById('b-doctor');
+  if(sel.options.length===0)DOCTORS.forEach(d=>{const o=document.createElement('option');o.value=d.name;o.textContent=`${d.name} (${d.type})`;sel.appendChild(o);});
+  bSelDates=new Set();
+  bCalY=CY;bCalM=CM;
+  document.getElementById('b-saving-msg').textContent='';
+  document.getElementById('b-save-btn').disabled=true;
+  document.getElementById('b-save-btn').textContent='Save';
+  renderBulkCal();
+  updateBulkPreview();
+  document.getElementById('bulk-modal').classList.add('open');
+}
+function closeBulk(){
+  document.getElementById('bulk-modal').classList.remove('open');
+  const existing=document.getElementById('bulk-conflict');
+  if(existing)existing.remove();
+  // Reset save button
+  const btn=document.getElementById('b-save-btn');
+  btn.onclick=saveBulk;
+}
+document.getElementById('bulk-modal').addEventListener('click',function(e){if(e.target===this)closeBulk();});
+
+let bSelDates=new Set();
+let bCalY=2026,bCalM=5;
+
+function bCalNav(d){bCalM+=d;if(bCalM<0){bCalM=11;bCalY--;}if(bCalM>11){bCalM=0;bCalY++;}renderBulkCal();}
+
+function renderBulkCal(){
+  const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('b-cal-title').textContent=`${mn[bCalM]} ${bCalY}`;
+  const dim=new Date(bCalY,bCalM+1,0).getDate();
+  const off=(new Date(bCalY,bCalM,1).getDay()+6)%7;
+  const today=fd(new Date());
+  let html='';
+  for(let i=0;i<off;i++)html+=`<div class="bmini-cell bmini-empty"></div>`;
+  for(let d=1;d<=dim;d++){
+    const dt=new Date(bCalY,bCalM,d);
+    const isSun=dt.getDay()===0;
+    const ds=fd(dt);
+    const sel=bSelDates.has(ds);
+    const isToday=ds===today;
+    let cls='bmini-cell';
+    if(isSun)cls+=' bmini-sun';
+    if(sel)cls+=' bmini-sel';
+    if(isToday)cls+=' bmini-today';
+    const onclick=isSun?'':`onclick="bToggleDate('${ds}')"`;
+    html+=`<div class="${cls}" ${onclick}>${d}</div>`;
+  }
+  document.getElementById('b-cal-grid').innerHTML=html;
+}
+
+function bToggleDate(ds){
+  if(bSelDates.has(ds))bSelDates.delete(ds);else bSelDates.add(ds);
+  renderBulkCal();
+  updateBulkPreview();
+}
+
+function updateBulkPreview(){
+  const count=bSelDates.size;
+  const start=document.getElementById('b-start').value;
+  const end=document.getElementById('b-end').value;
+  const countEl=document.getElementById('b-sel-count');
+  countEl.textContent=count>0?`· ${count} selected`:'';
+  const preview=document.getElementById('b-preview');
+  const btn=document.getElementById('b-save-btn');
+  if(count===0||!start||!end||toMin(start)>=toMin(end)){
+    preview.innerHTML=`<div style="padding:10px 8px;font-size:11px;color:#bbb;">${count===0?'No dates selected':'Check time values'}</div>`;
+    btn.disabled=true;btn.textContent='Save';return;
+  }
+  const sorted=[...bSelDates].sort();
+  let html=sorted.map(ds=>`<div class="bulk-preview-row">✓ &nbsp;<strong>${ds}</strong>&ensp;${start}–${end}</div>`).join('');
+  preview.innerHTML=html;
+  btn.disabled=false;
+  btn.textContent=`Save ${count} shift${count>1?'s':''}`;
+}
+
+async function saveBulk(){
+  const doctor=document.getElementById('b-doctor').value;
+  const room=parseInt(document.getElementById('b-room').value);
+  const start=document.getElementById('b-start').value;
+  const end=document.getElementById('b-end').value;
+  const toAdd=[...bSelDates].sort().map(date=>({doctor,date,room,start,end}));
+  if(!toAdd.length)return;
+
+  // Conflict check
+  const conflicts=findConflicts(toAdd);
+  if(conflicts.length>0){
+    const existing=document.getElementById('bulk-conflict');
+    if(existing)existing.remove();
+    const div=document.createElement('div');
+    div.id='bulk-conflict';
+    div.innerHTML=conflictHTML(conflicts)+`<div style="font-size:11px;color:#7a5c00;margin-top:4px;">Save anyway?</div>`;
+    document.querySelector('#bulk-modal .modal-btns').before(div);
+    const btn=document.getElementById('b-save-btn');
+    btn.textContent=`Save ${toAdd.length} anyway`;
+    btn.disabled=false;
+    btn.onclick=()=>doSaveBulk(toAdd);
+    return;
+  }
+  await doSaveBulk(toAdd);
+}
+
+async function doSaveBulk(toAdd){
+  document.getElementById('b-saving-msg').textContent='Saving...';
+  document.getElementById('b-save-btn').disabled=true;
+  allShifts.push(...toAdd);
+  await saveAllShifts();
+  closeBulk();
+  render();
+}
 </script>
 </body>
 </html>
