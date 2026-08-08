@@ -234,6 +234,7 @@ const DOCTORS=[
   {name:'Eduardo N.',type:'Spec'},
   {name:'Ana Brasileiro',type:'Spec'},
   {name:'Elena Pushina',type:'Gyn'},
+  {name:'Inga Grin',type:'Psych'},
 ];
 const SPEC_BADGE={
   GP:{text:'GP',bg:'rgba(15,123,74,0.15)',color:'#085041'},
@@ -241,6 +242,7 @@ const SPEC_BADGE={
   Peds:{text:'Peds',bg:'rgba(99,56,6,0.12)',color:'#633806'},
   Spec:{text:'Spec',bg:'rgba(12,68,124,0.12)',color:'#0C447C'},
   Ortho:{text:'Ortho',bg:'rgba(12,68,124,0.12)',color:'#0C447C'},
+  Psych:{text:'Psych',bg:'rgba(103,36,131,0.12)',color:'#672483'},
 };
 function isGP(name){const d=DOCTORS.find(x=>x.name===name);return d&&d.type==='GP';}
 function docType(name){const d=DOCTORS.find(x=>x.name===name);return d?d.type:'';}
