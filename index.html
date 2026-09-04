@@ -266,7 +266,7 @@ function gpUnion(ds){return unionMins(ds.filter(s=>isGP(s.doctor)));}
 function getWorkDays(y,m){const d=[];const dt=new Date(y,m,1);while(dt.getMonth()===m){if(dt.getDay()!==0)d.push(new Date(dt));dt.setDate(dt.getDate()+1);}return d;}
 
 let allShifts=[];
-let CY=2026,CM=5;
+let CY=new Date().getFullYear(),CM=new Date().getMonth();
 const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 // JSONbin API
