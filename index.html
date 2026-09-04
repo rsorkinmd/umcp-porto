@@ -733,7 +733,8 @@ function renderGaps(shifts,wdays){
   const totalMins=DE-DS;
   const BW=200;
   rows.forEach(({ds,g,totalGap},i)=>{
-    const dt=new Date(ds+'T12:00:00');
+    const parts=ds.split('-');
+    const dt=new Date(+parts[0],+parts[1]-1,+parts[2]);
     const dow=DOW[dt.getDay()===0?6:dt.getDay()-1];
     const pct=Math.round((1-totalGap/totalMins)*100);
     const col=pct>=60?'#0F7B4A':pct>=30?'#C07000':'#C00000';
@@ -760,8 +761,8 @@ function renderGaps(shifts,wdays){
 function openBulkOnDate(ds){
   openBulk();
   setTimeout(()=>{
-    const dt=new Date(ds+'T12:00:00');
-    bCalY=dt.getFullYear(); bCalM=dt.getMonth();
+    const parts=ds.split('-');
+    bCalY=+parts[0]; bCalM=+parts[1]-1;
     renderBulkCal();
     bToggleDate(ds);
   },50);
