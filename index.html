@@ -146,6 +146,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="tab active" onclick="st('cal',this)">📅 Calendar</div>
   <div class="tab" onclick="st('staff',this)">👥 Staff</div>
   <div class="tab" onclick="st('rooms',this)">🚪 Rooms</div>
+  <div class="tab" onclick="st('gaps',this)">🕳 GP Gaps</div>
 </div>
 
 <div class="metrics" id="mrow"></div>
@@ -169,6 +170,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 <div id="v-staff" class="view"></div>
 <div id="v-rooms" class="view"></div>
+<div id="v-gaps" class="view"></div>
 
 </div>
 
@@ -314,7 +316,7 @@ function setSyncStatus(s){
 }
 
 function cm(d){CM+=d;if(CM<0){CM=11;CY--;}if(CM>11){CM=0;CY++;}render();}
-function st(tab,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');['cal','staff','rooms'].forEach(v=>{document.getElementById('v-'+v).classList.toggle('active',v===tab);});}
+function st(tab,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');['cal','staff','rooms','gaps'].forEach(v=>{document.getElementById('v-'+v).classList.toggle('active',v===tab);});}
 
 function getMonthShifts(){
   const key=`${CY}-${String(CM+1).padStart(2,'0')}`;
@@ -330,6 +332,7 @@ function render(){
   renderCal(shifts,wdays);
   renderStaff(shifts,wdays);
   renderRooms(shifts,wdays);
+  renderGaps(shifts,wdays);
   populateDoctorSelect();
 }
 
@@ -686,6 +689,84 @@ loadShifts();
     </div>
   </div>
 </div>
+
+<script>
+// ── GP GAPS ──────────────────────────────────────────
+function renderGaps(shifts,wdays){
+  const DS=DAY_START,DE=DAY_END;
+  function fmt(m){return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
+  function unionGP(dayShifts){
+    const ivs=dayShifts.filter(s=>isGP(s.doctor)).map(s=>[toMin(s.start),toMin(s.end)]).sort((a,b)=>a[0]-b[0]);
+    const merged=[];
+    for(const[s,e]of ivs){if(merged.length&&s<merged[merged.length-1][1])merged[merged.length-1][1]=Math.max(merged[merged.length-1][1],e);else merged.push([s,e]);}
+    return merged;
+  }
+  function getGaps(merged){
+    const g=[];let prev=DS;
+    for(const[s,e]of merged){if(s>prev)g.push([prev,s]);prev=Math.max(prev,e);}
+    if(prev<DE)g.push([prev,DE]);
+    return g;
+  }
+  const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DOW=['Mon','Tue','Wed','Thu','Fri','Sat'];
+  const rows=wdays.map(ds=>{
+    const dayShifts=shifts.filter(s=>s.date===ds);
+    const merged=unionGP(dayShifts);
+    const g=getGaps(merged);
+    const totalGap=g.reduce((a,[s,e])=>a+(e-s),0);
+    return{ds,g,totalGap};
+  }).filter(r=>r.totalGap>0);
+
+  let html=`<div style="padding:16px 0;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:600;color:#333;">GP coverage gaps — ${mn[CM]} ${CY}</div>
+      <div style="font-size:12px;color:#999;">${rows.length} days with uncovered time</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f7f7f7;border-bottom:2px solid #e0e0e0;">
+        <th style="text-align:left;padding:8px 12px;color:#666;font-weight:500;width:80px;">Date</th>
+        <th style="text-align:left;padding:8px 12px;color:#666;font-weight:500;width:50px;">Day</th>
+        <th style="text-align:left;padding:8px 12px;color:#666;font-weight:500;">Uncovered windows</th>
+        <th style="text-align:right;padding:8px 12px;color:#666;font-weight:500;width:60px;">Gap</th>
+      </tr></thead><tbody>`;
+
+  const totalMins=DE-DS;
+  const BW=200;
+  rows.forEach(({ds,g,totalGap},i)=>{
+    const dt=new Date(ds+'T12:00:00');
+    const dow=DOW[dt.getDay()===0?6:dt.getDay()-1];
+    const pct=Math.round((1-totalGap/totalMins)*100);
+    const col=pct>=60?'#0F7B4A':pct>=30?'#C07000':'#C00000';
+    const bg=i%2===0?'#fff':'#fafafa';
+    let bar=`<div style="position:relative;width:${BW}px;height:7px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:4px;">`;
+    g.forEach(([gs,ge])=>{
+      const l=Math.round((gs-DS)/totalMins*BW),w=Math.round((ge-gs)/totalMins*BW);
+      bar+=`<div style="position:absolute;left:${l}px;width:${w}px;height:7px;background:#ffaaaa;"></div>`;
+    });
+    bar+=`</div>`;
+    const tags=g.map(([gs,ge])=>`<span style="display:inline-block;background:#FFF2CC;border:1px solid #e6c800;border-radius:4px;padding:1px 6px;margin:1px 2px;font-size:11px;color:#7a5c00;">${fmt(gs)}–${fmt(ge)}</span>`).join('');
+    html+=`<tr style="background:${bg};border-bottom:1px solid #f0f0f0;">
+      <td style="padding:8px 12px;font-weight:500;color:#333;">${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}</td>
+      <td style="padding:8px 12px;color:#888;">${dow}</td>
+      <td style="padding:8px 12px;">${bar}${tags}</td>
+      <td style="padding:8px 12px;text-align:right;font-weight:600;color:${col};">${Math.round(totalGap/60*10)/10}h</td>
+    </tr>`;
+  });
+  if(!rows.length)html+=`<tr><td colspan="5" style="text-align:center;padding:40px;color:#aaa;">✅ No GP gaps this month</td></tr>`;
+  html+=`</tbody></table></div>`;
+  document.getElementById('v-gaps').innerHTML=html;
+}
+
+function openBulkOnDate(ds){
+  openBulk();
+  setTimeout(()=>{
+    const dt=new Date(ds+'T12:00:00');
+    bCalY=dt.getFullYear(); bCalM=dt.getMonth();
+    renderBulkCal();
+    bToggleDate(ds);
+  },50);
+}
+</script>
 
 <script>
 function openBulk(){
