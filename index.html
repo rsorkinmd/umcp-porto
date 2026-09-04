@@ -710,11 +710,12 @@ function renderGaps(shifts,wdays){
   const mn=['January','February','March','April','May','June','July','August','September','October','November','December'];
   const DOW=['Mon','Tue','Wed','Thu','Fri','Sat'];
   const rows=wdays.map(ds=>{
-    const dayShifts=shifts.filter(s=>s.date===ds);
+    const dsStr=typeof ds==='string'?ds:fd(ds);
+    const dayShifts=shifts.filter(s=>s.date===dsStr);
     const merged=unionGP(dayShifts);
     const g=getGaps(merged);
     const totalGap=g.reduce((a,[s,e])=>a+(e-s),0);
-    return{ds,g,totalGap};
+    return{ds:dsStr,g,totalGap};
   }).filter(r=>r.totalGap>0);
 
   let html=`<div style="padding:16px 0;">
