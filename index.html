@@ -121,6 +121,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .conflict-box{background:#FFF2CC;border:1px solid #e6c800;border-radius:7px;padding:8px 12px;font-size:12px;color:#7a5c00;margin-bottom:10px;}
 .conflict-box strong{color:#5c4400;}
 .conflict-item{margin-top:3px;padding-left:8px;}
+/* Clinic switcher */
+.clinic-switcher{display:flex;gap:6px;margin-bottom:10px;}
+.clinic-btn{padding:5px 16px;border-radius:20px;border:1.5px solid #d0d0d0;background:#fff;font-size:12px;font-weight:500;color:#666;cursor:pointer;transition:all 0.15s;}
+.clinic-btn.active{background:#006B68;border-color:#006B68;color:#fff;}
+.clinic-btn:hover:not(.active){border-color:#006B68;color:#006B68;}
 
 </style>
 </head>
@@ -129,7 +134,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div class="top-header">
   <div>
-    <div class="clinic-name">United Medical Clinic Porto · UMCP, LDA · NIPC 519073800 · ERS E181989</div>
+    <div class="clinic-switcher">
+      <button class="clinic-btn active" id="btn-porto" onclick="switchClinic('porto')">🏥 Porto</button>
+      <button class="clinic-btn" id="btn-lisbon" onclick="switchClinic('lisbon')">🏥 Lisboa</button>
+    </div>
+    <div class="clinic-name" id="clinic-name">United Medical Clinic Porto · UMCP, LDA · NIPC 519073800 · ERS E181989</div>
     <div class="month-nav">
       <button onclick="cm(-1)">← prev</button>
       <h2 id="ml">Loading...</h2>
@@ -153,9 +162,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div id="v-cal" class="view active">
   <div class="legend">
-    <span class="legend-item"><span class="legend-dot" style="background:#1B4F8A;"></span>Room 1 · Pediatrics/GP</span>
-    <span class="legend-item"><span class="legend-dot" style="background:#2E75B6;"></span>Room 2 · Medicina Geral</span>
-    <span class="legend-item"><span class="legend-dot" style="background:#C55A11;"></span>Room 3 · Ginecologia/ECO</span>
+    <span id="legend-rooms"></span>
     <span class="legend-item"><span class="legend-dot" style="background:#E1F5EE;border:1.5px solid #5DCAA5;"></span>GP/Family medicine</span>
     <span class="legend-item"><span class="legend-dot" style="background:#fffbee;border:1.5px solid #e6c800;"></span>No GP coverage</span>
     <span class="legend-item"><span style="display:inline-flex;gap:2px;"><span style="width:6px;height:12px;border-radius:1px;background:#FCEAEA;display:inline-block;"></span><span style="width:6px;height:12px;border-radius:1px;background:#0F7B4A;display:inline-block;"></span><span style="width:6px;height:12px;border-radius:1px;background:#F4B942;display:inline-block;"></span></span> GP timeline: red=gap · green=1 GP · yellow=2+ GP</span>
@@ -184,9 +191,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <input type="date" id="m-date" min="2026-01-01" max="2027-12-31">
     <label>Room</label>
     <select id="m-room">
-      <option value="1">Room 1 · Pediatrics/GP</option>
-      <option value="2">Room 2 · Medicina Geral</option>
-      <option value="3">Room 3 · Ginecologia/ECO</option>
+      <option value="1">Room 1</option>
+      <option value="2">Room 2</option>
+      <option value="3">Room 3</option>
     </select>
     <label>Start time</label>
     <input type="time" id="m-start" value="09:00">
@@ -202,43 +209,92 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <script>
-const BIN_ID='6a2d3fc7da38895dfeb9cdcb';
-const API_KEY='$2a$10$vp.Th52YcMrtTYnAmx9uzey8ZjVYmEOs.QHuuPfiBHs9Lc1HoX1AK';
-const API_BASE=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
+const CLINICS={
+  porto:{
+    binId:'6a2d3fc7da38895dfeb9cdcb',
+    apiKey:'$2a$10$vp.Th52YcMrtTYnAmx9uzey8ZjVYmEOs.QHuuPfiBHs9Lc1HoX1AK',
+    name:'United Medical Clinic Porto · UMCP, LDA · NIPC 519073800 · ERS E181989',
+    clinicRooms:[1,2,3],
+    rooms:[
+      {id:1,name:'Room 1 · Pediatrics/GP',color:'#1A7A3C',bg:'#EAF5EE'},
+      {id:2,name:'Room 2 · Medicina Geral',color:'#1A4FA8',bg:'#EAF0FA'},
+      {id:3,name:'Room 3 · Ginecologia/ECO',color:'#8B2FC9',bg:'#F5EAF9'},
+    ],
+    doctors:[
+      {name:'Joana M.',type:'GP'},{name:'Rachel L.',type:'GP'},{name:'Kostyantyn A.',type:'GP'},
+      {name:'Alyona K.',type:'GP'},{name:'Jose C.',type:'GP'},{name:'Tiago Veloso',type:'GP'},
+      {name:'Yuriy M.',type:'Ortho'},{name:'Nataliia L.',type:'GP'},{name:'Iryna M.',type:'GP'},
+      {name:'Joao Maia',type:'GP'},{name:'Miguel Paiva',type:'GP'},{name:'Tiago C.',type:'Spec'},
+      {name:'Berta R.',type:'Spec'},{name:'Carolina V.E.',type:'Gyn'},{name:'Ana Cunha',type:'Gyn'},
+      {name:'Maria Ines S.',type:'Gyn'},{name:'Catarina B.',type:'Peds'},{name:'Sofia V.',type:'Peds'},
+      {name:'Manuel Godinho',type:'Ortho'},{name:'Estela D.V.',type:'Spec'},{name:'Eduardo N.',type:'Spec'},
+      {name:'Ana Brasileiro',type:'Spec'},{name:'Elena Pushina',type:'Gyn'},{name:'Inga Grin',type:'Psych'},
+      {name:'Daniela Catalao',type:'GP'},
+    ],
+  },
+  lisbon:{
+    binId:'6a9ac64df5f4af5e296a222d',
+    apiKey:'$2a$10$vp.Th52YcMrtTYnAmx9uzey8ZjVYmEOs.QHuuPfiBHs9Lc1HoX1AK',
+    name:'United Medical Clinics Lisbon · UMCL, LDA · NIPC 517826801',
+    clinicRooms:[1,2,3,4,5,6],
+    rooms:[
+      {id:1,name:'Room 1 · Medicina Geral',color:'#1A7A3C',bg:'#EAF5EE'},
+      {id:2,name:'Room 2 · Medicina Geral',color:'#1A4FA8',bg:'#EAF0FA'},
+      {id:3,name:'Room 3 · Pediatria',color:'#C07000',bg:'#FDF5E0'},
+      {id:4,name:'Room 4 · Infusões IV',color:'#0077A8',bg:'#E0F4FA'},
+      {id:5,name:'Room 5 · Oftalmologia',color:'#8B2FC9',bg:'#F5EAF9'},
+      {id:6,name:'Room 6 · Ginecologia/ECO',color:'#B5007A',bg:'#FAE8F4'},
+    ],
+    doctors:[
+      {name:'Joana M.',type:'GP'},{name:'Rachel L.',type:'GP'},{name:'Nataliia L.',type:'GP'},
+      {name:'Iryna M.',type:'GP'},{name:'Joao Maia',type:'GP'},{name:'Elena Pushina',type:'Gyn'},
+      {name:'Ana Brasileiro',type:'Spec'},{name:'Inga Grin',type:'Psych'},
+      {name:'Igor Untila',type:'GP'},{name:'Olga Sulimko',type:'GP'},
+      {name:'Cristina Makarenko',type:'GP'},{name:'Laura Garcia',type:'GP'},
+    ],
+  },
+};
 
-const CLINIC_ROOMS=[1,2,3];
-const ROOMS=[
-  {id:1,name:'Room 1 · Pediatrics/GP',color:'#1A7A3C',bg:'#EAF5EE'},
-  {id:2,name:'Room 2 · Medicina Geral',color:'#1A4FA8',bg:'#EAF0FA'},
-  {id:3,name:'Room 3 · Ginecologia/ECO',color:'#8B2FC9',bg:'#F5EAF9'},
-];
-const DOCTORS=[
-  {name:'Joana M.',type:'GP'},
-  {name:'Rachel L.',type:'GP'},
-  {name:'Kostyantyn A.',type:'GP'},
-  {name:'Alyona K.',type:'GP'},
-  {name:'Jose C.',type:'GP'},
-  {name:'Tiago Veloso',type:'GP'},
-  {name:'Yuriy M.',type:'Ortho'},
-  {name:'Nataliia L.',type:'GP'},
-  {name:'Iryna M.',type:'GP'},
-  {name:'Joao Maia',type:'GP'},
-  {name:'Miguel Paiva',type:'GP'},
-  {name:'Tiago C.',type:'Spec'},
-  {name:'Berta R.',type:'Spec'},
-  {name:'Carolina V.E.',type:'Gyn'},
-  {name:'Ana Cunha',type:'Gyn'},
-  {name:'Maria Ines S.',type:'Gyn'},
-  {name:'Catarina B.',type:'Peds'},
-  {name:'Sofia V.',type:'Peds'},
-  {name:'Manuel Godinho',type:'Ortho'},
-  {name:'Estela D.V.',type:'Spec'},
-  {name:'Eduardo N.',type:'Spec'},
-  {name:'Ana Brasileiro',type:'Spec'},
-  {name:'Elena Pushina',type:'Gyn'},
-  {name:'Inga Grin',type:'Psych'},
-  {name:'Daniela Catalao',type:'GP'},
-];
+let activeClinic='porto';
+let BIN_ID=CLINICS.porto.binId;
+let API_KEY=CLINICS.porto.apiKey;
+let API_BASE=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
+let CLINIC_ROOMS=CLINICS.porto.clinicRooms;
+let ROOMS=CLINICS.porto.rooms;
+let DOCTORS=CLINICS.porto.doctors;
+
+function switchClinic(key){
+  if(activeClinic===key)return;
+  activeClinic=key;
+  const c=CLINICS[key];
+  BIN_ID=c.binId;
+  API_KEY=c.apiKey;
+  API_BASE=`https://api.jsonbin.io/v3/b/${BIN_ID}`;
+  CLINIC_ROOMS=c.clinicRooms;
+  ROOMS=c.rooms;
+  DOCTORS=c.doctors;
+  document.getElementById('clinic-name').textContent=c.name;
+  document.getElementById('btn-porto').classList.toggle('active',key==='porto');
+  document.getElementById('btn-lisbon').classList.toggle('active',key==='lisbon');
+  // Reset doctor dropdown in bulk modal
+  document.getElementById('b-doctor').innerHTML='';
+  allShifts=[];
+  document.getElementById('sync-status').textContent='Loading...';
+  // Update legend
+  updateLegend();
+  loadShifts();
+}
+
+function updateLegend(){
+  const legendRooms=document.getElementById('legend-rooms');
+  if(legendRooms) legendRooms.innerHTML=ROOMS.map(r=>`<span class="legend-item"><span class="legend-dot" style="background:${r.color};"></span>${r.name}</span>`).join('');
+  // Update room dropdowns in both modals
+  const roomOpts=ROOMS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  const mRoom=document.getElementById('m-room');
+  const bRoom=document.getElementById('b-room');
+  if(mRoom)mRoom.innerHTML=roomOpts;
+  if(bRoom)bRoom.innerHTML=roomOpts;
+}
 const SPEC_BADGE={
   GP:{text:'GP',bg:'rgba(15,123,74,0.15)',color:'#085041'},
   Gyn:{text:'Gyn',bg:'rgba(75,21,40,0.12)',color:'#4B1528'},
@@ -629,6 +685,7 @@ async function deleteShift(){
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 
 // Init
+updateLegend();
 loadShifts();
 </script>
 
@@ -644,9 +701,6 @@ loadShifts();
       <div>
         <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">Room</label>
         <select id="b-room" style="width:100%;padding:7px 10px;border:1px solid #d0d0d0;border-radius:7px;font-size:13px;">
-          <option value="1">Room 1 · Pediatrics/GP</option>
-          <option value="2">Room 2 · Medicina Geral</option>
-          <option value="3">Room 3 · Ginecologia/ECO</option>
         </select>
       </div>
     </div>
