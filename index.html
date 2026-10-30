@@ -584,10 +584,22 @@ function renderRooms(shifts,wdays){
 }
 
 // Doctor select
+function defaultRoomForDoctor(name){
+  const d=DOCTORS.find(x=>x.name===name);
+  if(!d)return 2;
+  if(d.type==='Gyn'||d.type==='Ortho'||d.type==='Spec')return 3;
+  if(d.type==='Peds')return 1;
+  return 2;
+}
 function populateDoctorSelect(){
   const sel=document.getElementById('m-doctor');
   if(sel.options.length>0)return;
   DOCTORS.forEach(d=>{const o=document.createElement('option');o.value=d.name;o.textContent=`${d.name} (${d.type})`;sel.appendChild(o);});
+  sel.addEventListener('change',function(){
+    if(editingId===null){
+      document.getElementById('m-room').value=defaultRoomForDoctor(this.value);
+    }
+  });
 }
 
 // Conflict detection
@@ -640,7 +652,8 @@ function openAdd(dateStr){
   document.getElementById('m-date').value=dateStr||fd(new Date());
   document.getElementById('m-start').value='09:00';
   document.getElementById('m-end').value='14:00';
-  document.getElementById('m-room').value='2';
+  const firstDoc=document.getElementById('m-doctor').value;
+  document.getElementById('m-room').value=defaultRoomForDoctor(firstDoc);
   document.getElementById('saving-msg').textContent='';
   document.getElementById('modal').classList.add('open');
 }
